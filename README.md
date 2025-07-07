@@ -1,6 +1,6 @@
 # Steal a Brainrot Macro
 
-An open-source Grow a Brainrot Macro written in Python!
+An open-source Grow a Brainrot Macro written in Python! The game is [here](https://www.roblox.com/games/109983668079237/Steal-a-Brainrot).
 
 ## Community 🌎
 
