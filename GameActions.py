@@ -1,6 +1,7 @@
 import re
 from time import sleep
 from Helper import human_readable_to_long
+import time
 
 class GameActions:
     def __init__(self, window_manager, input_manager, stop_event, action_queue):
@@ -83,7 +84,7 @@ class GameActions:
         self.input_manager.key_press(self.plot_side_right and 'a' or 'd', duration=first_to_last_time)
         self.safe_sleep(0.5)
 
-    def scan_npcs(self, rarities=[], min_income=100):
+    def scan_npcs(self, rarities=[], min_income=100, stop_time=None):
         """
         Scan for NPCs with the given target names.
         
@@ -92,6 +93,8 @@ class GameActions:
             hold_time (float): Time to hold the key for scanning.
             accuracy (float): Accuracy threshold for OCR.
         """
+        start_time = time.time()
+        
         self.reset_bot()
         hold_time = 1.7
         if self.plot_side_right:
@@ -101,6 +104,11 @@ class GameActions:
         
         #run ocr in loop with window manager
         while True:
+            # Check if stop_time has been reached
+            if stop_time is not None and time.time() - start_time >= stop_time:
+                print(f"Scan stopped after {stop_time} seconds")
+                break
+                
             bounding_box = (148, 109, 610, 514)
             ocr_results1 = self.window_manager.get_words_in_bounding_box(bounding_box)
             # check for words in the format $<number>/ with regex
@@ -118,4 +126,3 @@ class GameActions:
             if self.action_queue.get_queue_size() > 0:
                 raise Exception("Action queue is not empty, stopping scan.")
             self.safe_sleep(0.2)
-

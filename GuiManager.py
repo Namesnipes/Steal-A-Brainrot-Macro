@@ -44,7 +44,7 @@ class GuiManager:
         # --- Top Title ---
         title_frame = customtkinter.CTkFrame(self.app, fg_color="transparent")
         title_frame.grid(row=0, column=0, padx=20, pady=(10, 0), sticky="ew")
-        title_label = customtkinter.CTkLabel(title_frame, text="🤖 Macro & Scanner", font=customtkinter.CTkFont(size=24, weight="bold"))
+        title_label = customtkinter.CTkLabel(title_frame, text="MooMan's Brainrot Macro", font=customtkinter.CTkFont(size=24, weight="bold"))
         title_label.pack(pady=10)
 
         # --- Tabbed Interface for Settings ---
@@ -53,17 +53,34 @@ class GuiManager:
 
         macro_tab = tab_view.add("⚙️ Macro Settings")
         npc_scan_tab = tab_view.add("🔎 NPC Scan Filters")
-        macro_tab.grid_columnconfigure(1, weight=1)
+        macro_tab.grid_columnconfigure(0, weight=1)
         npc_scan_tab.grid_columnconfigure(1, weight=1)
 
         # --- Populate "Macro Settings" Tab ---
         # NOTE: All input widgets are now instance attributes (self.*)
-        self.auto_lock_check = customtkinter.CTkCheckBox(macro_tab, text="Auto Lock Base")
-        self.auto_lock_check.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="w")
 
-        self.auto_collect_check = customtkinter.CTkCheckBox(macro_tab, text="Auto Collect Money")
-        self.auto_collect_check.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky="w")
+        # -- Auto Collect Money Setting --
+        collect_frame = customtkinter.CTkFrame(macro_tab, fg_color="transparent")
+        collect_frame.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
+        
+        self.auto_collect_check = customtkinter.CTkCheckBox(collect_frame, text="Auto Collect Money every")
+        self.auto_collect_check.pack(side="left", padx=(0, 5))
         self.auto_collect_check.select()
+
+        self.collect_money_interval_entry = customtkinter.CTkEntry(collect_frame, placeholder_text="60", width=50)
+        self.collect_money_interval_entry.pack(side="left", padx=5)
+        
+        collect_seconds_label = customtkinter.CTkLabel(collect_frame, text="seconds")
+        collect_seconds_label.pack(side="left", padx=5)
+
+        # -- Auto Scan for NPCs Setting --
+        scan_frame = customtkinter.CTkFrame(macro_tab, fg_color="transparent")
+        scan_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
+
+        self.auto_scan_check = customtkinter.CTkCheckBox(scan_frame, text="Auto Scan for NPCs")
+        self.auto_scan_check.pack(side="left")
+        self.auto_scan_check.select()
+
 
         # --- Populate "NPC Scan Filters" Tab ---
         self.income_filter_check = customtkinter.CTkCheckBox(npc_scan_tab, text="Only buy NPCs with income >")
@@ -108,8 +125,9 @@ class GuiManager:
         """Gathers all settings from the GUI widgets and returns them as a dictionary."""
         try:
             settings = {
-                "auto_lock_base": bool(self.auto_lock_check.get()),
                 "auto_collect_money": bool(self.auto_collect_check.get()),
+                "collect_money_interval": int(self.collect_money_interval_entry.get() or 60),
+                "auto_scan_npcs": bool(self.auto_scan_check.get()),
                 "filter_by_income": bool(self.income_filter_check.get()),
                 "income_threshold": int(self.income_entry.get() or 100),
                 "min_rarity": self.min_rarity_combo.get(),
