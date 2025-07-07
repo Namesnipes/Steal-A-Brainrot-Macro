@@ -1,0 +1,6 @@
+pywin32
+screen-ocr[winrt]
+customtkinter
+pydirectinput-rgx
+numpy
+pillow
