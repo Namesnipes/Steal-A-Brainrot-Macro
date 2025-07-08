@@ -8,6 +8,10 @@ An open-source Grow a Brainrot Macro written in Python! The game is [here](https
 
 Here you can receive help setting up the macro from the developers or other users of the macros. Discord is our MAIN platform, we do not communicate officially on anything else.
 
+## Usage
+Download from [releases](https://github.com/Namesnipes/Grow-A-Brainrot-Macro/releases)
+Or build it from the source 
+
 ## Build
 `pyinstaller --add-data "config.json;." main.py`
 
