@@ -2,9 +2,10 @@ from WindowManager import WindowManager
 from InputManager import InputManager
 from GameActions import GameActions
 from GuiManager import GuiManager # Import the new class
-from time import sleep, time
+from time import sleep
 
 from ActionQueue import ActionQueue
+from Events import Events
 
 def main_bot_logic(settings, stop_event):
     """The main logic for the bot, to be run in a thread."""
@@ -17,12 +18,13 @@ def main_bot_logic(settings, stop_event):
     action_queue = ActionQueue()
     game_actions = GameActions(window_manager, input_manager, stop_event, action_queue)
 
-
+    log = Events().change_status
+    logdb = Events().debug
     game_actions.align_camera()
-    print("Starting bot actions in 1 second...")
+    log("Starting bot actions in 1 second...")
     sleep(1)
 
-    print(f"Settings received: {settings}")
+    logdb(f"Settings received: {settings}")
     
     while not stop_event.is_set():
         # --- Handle Money Collection ---
@@ -31,7 +33,7 @@ def main_bot_logic(settings, stop_event):
 
         # --- Handle NPC Scanning ---
         if settings.get("auto_scan_npcs"):
-            game_actions.scan_npcs(min_income=settings.get("min_income", 100), stop_time=settings.get("collect_money_interval", 60))
+            game_actions.scan_npcs(min_income=settings.get("income_threshold", 100), stop_time=settings.get("collect_money_interval", 60))
 
         # Wait for a short duration to prevent a busy loop, checking for the stop event
         if stop_event.wait(timeout=1):

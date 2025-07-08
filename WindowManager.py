@@ -118,7 +118,29 @@ class WindowManager:
             
         return output
 
+    def save_screenshot(self, filename, bounding_box=None):
+        """
+        Saves a screenshot of the current window or a specified bounding box.
 
+        :param filename: The name of the file to save the screenshot.
+        :param bounding_box: Optional tuple (left, top, right, bottom) for a specific area.
+                            If None, captures the entire client area.
+        """
+        if not self.hwnd:
+            print("Error: Window not set up. Call setup_window() first.")
+            return
+        
+        if bounding_box is None:
+            # Get client area coordinates
+            left, top, right, bottom = win32gui.GetClientRect(self.hwnd)
+            screen_left, screen_top = win32gui.ClientToScreen(self.hwnd, (left, top))
+            screen_right, screen_bottom = win32gui.ClientToScreen(self.hwnd, (right, bottom))
+            bounding_box = (screen_left, screen_top, screen_right, screen_bottom)
+
+        screenshot = ImageGrab.grab(bbox=bounding_box)
+        screenshot.save(filename)
+        print(f"Screenshot saved as {filename}")
+        
     def find_color(self, hex_color, threshold=10):
         """
         Finds the first occurrence of a color in the window's client area.

@@ -1,7 +1,117 @@
+import queue
+from time import sleep
 import customtkinter
 import threading
 import keyboard
+import webbrowser
+import tkinter as tk
+import pyautogui
 
+from Events import Events
+
+class Tooltip:
+    """
+    Manages a single Tkinter instance to show tooltips in a thread-safe way.
+    The GUI runs in its own thread, and commands are sent to it via a queue.
+    """
+    def __init__(self):
+        self.command_queue = queue.Queue()
+        self.root = None
+        self.tooltip_window = None
+        self.after_id = None # To cancel scheduled hide events
+
+        # The GUI will run in a separate thread
+        self.gui_thread = threading.Thread(target=self._run_gui, daemon=True)
+        self.gui_thread.start()
+
+    def _run_gui(self):
+        """This method runs in the dedicated GUI thread."""
+        self.root = tk.Tk()
+        self.root.withdraw()  # Hide the main window
+
+        # Start the command processing loop
+        self._process_queue()
+
+        # Start the Tkinter event loop
+        self.root.mainloop()
+
+    def _process_queue(self):
+        """
+        Check the command queue for tasks and execute them.
+        This is the heart of the thread-safe communication.
+        """
+        try:
+            # Get a command from the queue without blocking
+            command, args = self.command_queue.get_nowait()
+            if command == "show":
+                self._show_tooltip(*args)
+            elif command == "hide":
+                self._hide_tooltip()
+        except queue.Empty:
+            pass # No commands? No problem.
+        finally:
+            # Schedule the next check
+            if self.root:
+                self.root.after(100, self._process_queue)
+
+    def _show_tooltip(self, text, duration_ms, x, y, fg_color, bg_color):
+        """Internal method to actually create and show the tooltip. MUST run in GUI thread."""
+        # Check if root is available
+        if not self.root:
+            return
+            
+        # If a tooltip is already visible, hide it first
+        if self.tooltip_window:
+            self._hide_tooltip()
+
+        # Create the new tooltip window
+        self.tooltip_window = tk.Toplevel(self.root)
+        self.tooltip_window.overrideredirect(True)
+        self.tooltip_window.wm_geometry(f"+{x}+{y}")
+
+        label = tk.Label(self.tooltip_window, text=text,
+                         background=bg_color,
+                         foreground=fg_color,
+                         relief="solid", borderwidth=1,
+                         font=("Arial", 9))
+        label.pack(padx=5, pady=3)
+
+        # Schedule the tooltip to be hidden
+        self.after_id = self.root.after(duration_ms, self._hide_tooltip)
+
+    def _hide_tooltip(self):
+        """Internal method to hide the tooltip. MUST run in GUI thread."""
+        # Cancel any pending hide command
+        if self.after_id and self.root:
+            self.root.after_cancel(self.after_id)
+            self.after_id = None
+
+        # Destroy the window if it exists
+        if self.tooltip_window:
+            self.tooltip_window.destroy()
+            self.tooltip_window = None
+
+    # --- Public Methods (Can be called from ANY thread) ---
+
+    def show(self, text, duration_ms=2000, offset_x=20, offset_y=10, fg_color="black", bg_color="#FFFFCC"):
+        """
+        Public method to request a tooltip to be shown.
+        This is thread-safe.
+        """
+        # Get mouse position at the time of the call
+        mouse_x, mouse_y = pyautogui.position()
+        x_pos = mouse_x + offset_x
+        y_pos = mouse_y + offset_y
+
+        # Put the command and its arguments onto the queue for the GUI thread to process
+        args = (text, duration_ms, x_pos, y_pos, fg_color, bg_color)
+        self.command_queue.put(("show", args))
+        
+    def stop(self):
+        """Stops the GUI thread gracefully."""
+        if self.root:
+            self.root.quit()
+         
 class GuiManager:
     """
     Manages the application's graphical user interface and user interactions.
@@ -23,7 +133,7 @@ class GuiManager:
         customtkinter.set_default_color_theme("dark-blue")
 
         self.app = customtkinter.CTk()
-        self.app.title("Advanced Macro Tool")
+        self.app.title("MooMan's Macro")
         self.app.geometry("500x520")
 
         self.app.grid_columnconfigure(0, weight=1)
@@ -34,10 +144,18 @@ class GuiManager:
         
         # Ensure the thread is stopped when the window is closed
         self.app.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.tooltips = Tooltip()
+        self.event_manager = Events()
+        self.event_manager.subscribe("status_change", self.change_status)
+        self.event_manager.subscribe("tooltip", self.tooltips.show)  # Print debug messages to console
 
     def run(self):
         """Starts the customtkinter main loop."""
         self.app.mainloop()
+
+    def open_link(self, url):
+        """Opens a URL in the default web browser."""
+        webbrowser.open_new(url)
 
     def _create_widgets(self):
         """Creates and places all the widgets in the window."""
@@ -45,7 +163,12 @@ class GuiManager:
         title_frame = customtkinter.CTkFrame(self.app, fg_color="transparent")
         title_frame.grid(row=0, column=0, padx=20, pady=(10, 0), sticky="ew")
         title_label = customtkinter.CTkLabel(title_frame, text="MooMan's Brainrot Macro", font=customtkinter.CTkFont(size=24, weight="bold"))
-        title_label.pack(pady=10)
+        title_label.pack(pady=(10, 0))
+
+        discord_link = "https://discord.gg/ur8an4mb"
+        sub_label = customtkinter.CTkLabel(title_frame, text="Join our Discord community!", text_color="#60a5fa", cursor="hand2", font=customtkinter.CTkFont(underline=True))
+        sub_label.pack(pady=(0, 10))
+        sub_label.bind("<Button-1>", lambda e: self.open_link(discord_link))
 
         # --- Tabbed Interface for Settings ---
         tab_view = customtkinter.CTkTabview(self.app, segmented_button_selected_color="#2c74b3")
@@ -167,6 +290,15 @@ class GuiManager:
         self.status_label.configure(text="Status: Stopped", text_color="orange")
         self.start_button.configure(state="normal")
         self.stop_button.configure(state="disabled")
+    
+    def change_status(self, message, color="gray"):
+        """
+        Updates the status label with a message and color.
+        :param message: The message to display.
+        :param color: The text color for the message.
+        """
+        print(message)
+        self.status_label.configure(text=message, text_color=color)
 
     def on_closing(self):
         """Handles the window closing event."""
