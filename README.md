@@ -4,7 +4,7 @@ An open-source Steal a Brainrot Macro written in Python! The game is [here](http
 
 ## Community 🌎
 
-[Join the Discord!](https://discord.gg/ur8an4mb)
+[Join the Discord!](https://discord.gg/e2qCZknrks)
 
 Here you can receive help setting up the macro from the developers or other users of the macros. Discord is our MAIN platform, we do not communicate officially on anything else.
 
