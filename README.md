@@ -9,8 +9,10 @@ An open-source Steal a Brainrot Macro written in Python! The game is [here](http
 Here you can receive help setting up the macro from the developers or other users of the macros. Discord is our MAIN platform, we do not communicate officially on anything else.
 
 ## Usage
-Download from [releases](https://github.com/Namesnipes/Steal-A-Brainrot-Macro/releases)
+Download from [releases](https://github.com/Namesnipes/Steal-A-Brainrot-Macro/releases) or watch a tutorial here: https://www.youtube.com/watch?v=5mZBO1pMFaI
 Or build it from the source 
+
+![](https://i.imgur.com/F8kRyKo.mp4)
 
 ## Build
 `pyinstaller --add-data "config.json;." main.py`
