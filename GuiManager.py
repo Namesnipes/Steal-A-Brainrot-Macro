@@ -168,8 +168,13 @@ class GuiManager:
 
         discord_link = "https://discord.gg/e2qCZknrks"
         sub_label = customtkinter.CTkLabel(title_frame, text="Join our Discord community!", text_color="#60a5fa", cursor="hand2", font=customtkinter.CTkFont(underline=True))
-        sub_label.pack(pady=(0, 10))
+        sub_label.pack()
         sub_label.bind("<Button-1>", lambda e: self.open_link(discord_link))
+
+        donation_link = "https://www.roblox.com/game-pass/1316222536/Steal-a-Brainrot-Macro-Donation"
+        donation_label = customtkinter.CTkLabel(title_frame, text="Support the developer!", text_color="#34d399", cursor="hand2", font=customtkinter.CTkFont(underline=True))
+        donation_label.pack(pady=(0, 10))
+        donation_label.bind("<Button-1>", lambda e: self.open_link(donation_link))
 
         # --- Tabbed Interface for Settings ---
         tab_view = customtkinter.CTkTabview(self.app, segmented_button_selected_color="#2c74b3")
