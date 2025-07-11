@@ -93,7 +93,7 @@ class Tooltip:
 
     # --- Public Methods (Can be called from ANY thread) ---
 
-    def show(self, text, duration_ms=2000, offset_x=20, offset_y=10, fg_color="black", bg_color="#FFFFCC"):
+    def show(self, text, duration_ms=2000, offset_x=20, offset_y=10, fg_color="black", color="#FFFFCC"):
         """
         Public method to request a tooltip to be shown.
         This is thread-safe.
@@ -104,7 +104,7 @@ class Tooltip:
         y_pos = mouse_y + offset_y
 
         # Put the command and its arguments onto the queue for the GUI thread to process
-        args = (text, duration_ms, x_pos, y_pos, fg_color, bg_color)
+        args = (text, duration_ms, x_pos, y_pos, fg_color, color)
         self.command_queue.put(("show", args))
         
     def stop(self):
@@ -141,6 +141,7 @@ class GuiManager:
 
         self._create_widgets()
         self._setup_hotkeys()
+        self._update_filter_display() # Set initial filter display text
         
         # Ensure the thread is stopped when the window is closed
         self.app.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -165,7 +166,7 @@ class GuiManager:
         title_label = customtkinter.CTkLabel(title_frame, text="MooMan's Brainrot Macro", font=customtkinter.CTkFont(size=24, weight="bold"))
         title_label.pack(pady=(10, 0))
 
-        discord_link = "https://discord.gg/ur8an4mb"
+        discord_link = "https://discord.gg/e2qCZknrks"
         sub_label = customtkinter.CTkLabel(title_frame, text="Join our Discord community!", text_color="#60a5fa", cursor="hand2", font=customtkinter.CTkFont(underline=True))
         sub_label.pack(pady=(0, 10))
         sub_label.bind("<Button-1>", lambda e: self.open_link(discord_link))
@@ -174,8 +175,8 @@ class GuiManager:
         tab_view = customtkinter.CTkTabview(self.app, segmented_button_selected_color="#2c74b3")
         tab_view.grid(row=1, column=0, padx=20, pady=10, sticky="nsew")
 
-        macro_tab = tab_view.add("⚙️ Macro Settings")
-        npc_scan_tab = tab_view.add("🔎 NPC Scan Filters")
+        macro_tab = tab_view.add("Macro Settings")
+        npc_scan_tab = tab_view.add("Brainrot Scan Filters")
         macro_tab.grid_columnconfigure(0, weight=1)
         npc_scan_tab.grid_columnconfigure(1, weight=1)
 
@@ -192,6 +193,7 @@ class GuiManager:
 
         self.collect_money_interval_entry = customtkinter.CTkEntry(collect_frame, placeholder_text="60", width=50)
         self.collect_money_interval_entry.pack(side="left", padx=5)
+        self.collect_money_interval_entry.bind("<Return>", lambda event: self.app.focus_set())
         
         collect_seconds_label = customtkinter.CTkLabel(collect_frame, text="seconds")
         collect_seconds_label.pack(side="left", padx=5)
@@ -200,28 +202,45 @@ class GuiManager:
         scan_frame = customtkinter.CTkFrame(macro_tab, fg_color="transparent")
         scan_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
 
-        self.auto_scan_check = customtkinter.CTkCheckBox(scan_frame, text="Auto Scan for NPCs")
+        self.auto_scan_check = customtkinter.CTkCheckBox(scan_frame, text="Auto Scan for Brainrots")
         self.auto_scan_check.pack(side="left")
         self.auto_scan_check.select()
 
+        # --- Frame to display active filters ---
+        filters_display_frame = customtkinter.CTkFrame(macro_tab, fg_color="transparent")
+        filters_display_frame.grid(row=2, column=0, columnspan=2, padx=20, pady=(0, 10), sticky="w")
+        filters_display_frame.grid_columnconfigure(1, weight=1)
+
+        title_label = customtkinter.CTkLabel(filters_display_frame, text="Buys when:", font=customtkinter.CTkFont(size=12, weight="bold"), text_color="gray")
+        title_label.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 2))
+
+        self.income_display_label = customtkinter.CTkLabel(filters_display_frame, text="", font=customtkinter.CTkFont(size=11), text_color="gray")
+        self.income_display_label.grid(row=1, column=0, columnspan=2, sticky="w", padx=(15, 0))
+
+        self.logic_display_label = customtkinter.CTkLabel(filters_display_frame, text="OR", font=customtkinter.CTkFont(size=11, weight="bold"), text_color="gray")
+        self.logic_display_label.grid(row=2, column=0, columnspan=2, sticky="w", padx=(15,0))
+
+        self.rarity_display_label = customtkinter.CTkLabel(filters_display_frame, text="", font=customtkinter.CTkFont(size=11), text_color="gray")
+        self.rarity_display_label.grid(row=3, column=0, columnspan=2, sticky="w", padx=(15, 0))
+
+        self.no_filter_display_label = customtkinter.CTkLabel(filters_display_frame, text="", font=customtkinter.CTkFont(size=11, slant="italic"), text_color="gray")
+        self.no_filter_display_label.grid(row=1, column=0, columnspan=2, sticky="w", padx=(15, 0))
+
 
         # --- Populate "NPC Scan Filters" Tab ---
-        self.income_filter_check = customtkinter.CTkCheckBox(npc_scan_tab, text="Only buy NPCs with income >")
+        self.income_filter_check = customtkinter.CTkCheckBox(npc_scan_tab, text="Only buy Brainrots with income more than:", command=self._update_filter_display)
         self.income_filter_check.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+        self.income_filter_check.select()
         self.income_entry = customtkinter.CTkEntry(npc_scan_tab, placeholder_text="100")
         self.income_entry.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
+        self.income_entry.bind("<Return>", lambda event: self.app.focus_set())
+        self.income_entry.bind("<KeyRelease>", lambda e: self._update_filter_display())
 
         min_rarity_label = customtkinter.CTkLabel(npc_scan_tab, text="Only buy with minimum rarity:")
         min_rarity_label.grid(row=2, column=0, padx=10, pady=10, sticky="w")
-        self.min_rarity_combo = customtkinter.CTkComboBox(npc_scan_tab, values=["Any", "Common", "Uncommon", "Rare", "Epic", "Legendary"])
+        self.min_rarity_combo = customtkinter.CTkComboBox(npc_scan_tab, values=["N/A", "Common", "Rare", "Epic", "Legendary", "Mythic", "Brainrot God", "Secret"], command=lambda e: self._update_filter_display())
         self.min_rarity_combo.grid(row=2, column=1, padx=10, pady=10, sticky="ew")
-        self.min_rarity_combo.set("Any")
-
-        target_names_label = customtkinter.CTkLabel(npc_scan_tab, text="🎯 Target specific names (comma-separated):")
-        target_names_label.grid(row=3, column=0, columnspan=2, padx=10, pady=(20, 5), sticky="w")
-        self.target_names_textbox = customtkinter.CTkTextbox(npc_scan_tab, height=80)
-        self.target_names_textbox.grid(row=4, column=0, columnspan=2, padx=10, pady=0, sticky="ew")
-        self.target_names_textbox.insert("0.0", "Tim Cheese, Noobini Pizzanini")
+        self.min_rarity_combo.set("N/A")
 
         # --- Bottom Buttons and Status Label ---
         # NOTE: These are also instance attributes to be controlled by methods.
@@ -244,6 +263,35 @@ class GuiManager:
         keyboard.add_hotkey("f5", self.start_macro)
         keyboard.add_hotkey("f7", self.stop_macro)
 
+    def _update_filter_display(self):
+        """Updates the filter display labels on the main tab."""
+        is_income_active = self.income_filter_check.get()
+        rarity_val = self.min_rarity_combo.get()
+        is_rarity_active = rarity_val != "N/A"
+
+        # Hide all labels initially
+        self.income_display_label.grid_remove()
+        self.rarity_display_label.grid_remove()
+        self.logic_display_label.grid_remove()
+        self.no_filter_display_label.grid_remove()
+
+        if not is_income_active and not is_rarity_active:
+            self.no_filter_display_label.configure(text="Buys any Brainrot found.")
+            self.no_filter_display_label.grid()
+            return
+
+        if is_income_active:
+            income_val = self.income_entry.get() or "100"
+            self.income_display_label.configure(text=f"• Income is more than {income_val}")
+            self.income_display_label.grid()
+
+        if is_rarity_active:
+            self.rarity_display_label.configure(text=f"• Rarity is {rarity_val} or higher")
+            self.rarity_display_label.grid()
+
+        if is_income_active and is_rarity_active:
+            self.logic_display_label.grid()
+
     def get_settings(self):
         """Gathers all settings from the GUI widgets and returns them as a dictionary."""
         try:
@@ -254,7 +302,7 @@ class GuiManager:
                 "filter_by_income": bool(self.income_filter_check.get()),
                 "income_threshold": int(self.income_entry.get() or 100),
                 "min_rarity": self.min_rarity_combo.get(),
-                "target_names": [name.strip() for name in self.target_names_textbox.get("0.0", "end-1c").split(',') if name.strip()]
+                "target_names": []
             }
             return settings
         except ValueError as e:

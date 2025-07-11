@@ -23,12 +23,12 @@ class Events:
     def change_status(self, message, color="gray"):
         self.emit("status_change", message, color)
     
-    def tooltip(self, message):
+    def tooltip(self, message, color="red"):
         """
         Emits a tooltip event with the given message.
         This is used to show tooltips in the GUI.
         """
-        self.emit("tooltip", message)
+        self.emit("tooltip", message, color=color)
     
     def debug(self, message):
         self.emit("debug", message)

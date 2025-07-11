@@ -3,6 +3,7 @@ from time import sleep
 from Events import Events
 from Helper import human_readable_to_long
 import time
+import random
 
 class GameActions:
     def __init__(self, window_manager, input_manager, stop_event, action_queue):
@@ -13,6 +14,11 @@ class GameActions:
         self.action_queue = action_queue
         self.status_update = Events().change_status
         self.tooltip = Events().tooltip
+        self.ALL_RARITIES = [
+        "common", "rare", "epic", "legendary", 
+        "mythic", "brainrot", "secret"
+    ]
+        
 
     def safe_sleep(self, duration):
         """
@@ -21,6 +27,8 @@ class GameActions:
         if self.stop_event.is_set():
             raise Exception("Bot stopped by user.")
         sleep(duration)
+        if self.stop_event.is_set():
+            raise Exception("Bot stopped by user.")
 
     def reset_bot(self, no_drag=False):
         self.status_update("Resetting character...")
@@ -30,36 +38,62 @@ class GameActions:
         self.safe_sleep(0.3)
         self.input_manager.key_press('enter')
         self.safe_sleep(5)
-        # Drag right click down
+        # if is red
+        r, g, b = self.window_manager.get_color_at_pixel(70, 397)
+        r2, g2, b2 = self.window_manager.get_color_at_pixel(730, 400) 
         if not no_drag:
             self.input_manager.drag_mouse(100, 100, 100, 500, button='right')
         self.safe_sleep(0.5)
+        print(f"red1: ({r})", f"red2: ({r2})")
+        if not (r > 120) and not (r2 > 120) and self.plot_side_right is not None:
+            self.input_manager.key_press(self.plot_side_right and 'left' or 'right', duration=0.75)
+
 
     def align_camera(self):
         """
         Drag right click down then use OCR to find whether "Cash Multi" is on right or left side of the screen.
         """
-        self.reset_bot(no_drag=True)
+        x, y = self.window_manager.get_center_coordinates()
+        self.input_manager.click(x, y)
+        self.safe_sleep(0.5)
         self.status_update("Aligning camera...")
+        self.input_manager.scroll(clicks=1000)
+        self.safe_sleep(0.5)
+        self.input_manager.scroll(clicks=-9, interval=0.1)
+        self.safe_sleep(0.5)
+        self.reset_bot(no_drag=True)
+        self.safe_sleep(0.5)
         # find if the word "CASH" is on the right or left side of the screen
-        bounding_box = (114, 91, 772, 513)
-        ocr_results = self.window_manager.get_words_in_bounding_box(bounding_box)
-        print(f"OCR Results: {ocr_results}")
-        cash_words = [[word,coords] for word, coords in ocr_results if 'cash' in word.lower() or 'collect' in word.lower()]
-        if len(cash_words) > 0:
-            cash_x, _ = cash_words[0][1]
-            print(self.window_manager.get_center_coordinates()[0])
-            print(f"Cash Multi found at x-coordinate: {cash_x}")
-            if cash_x > self.window_manager.get_center_coordinates()[0]:
-                self.plot_side_right = True
-                print("Cash Multi is on the right side.")
+        def ocr_multi():
+            bounding_box = (55, 188, 731, 380)
+            ocr_results = self.window_manager.get_words_in_bounding_box(bounding_box)
+            print(f"OCR Results: {ocr_results}")
+            cash_words = [[word,coords] for word, coords in ocr_results if 'cash' in word.lower() or 'collect' in word.lower()]
+            if len(cash_words) > 0:
+                cash_x, _ = cash_words[0][1]
+                print(self.window_manager.get_center_coordinates()[0])
+                if cash_x > self.window_manager.get_center_coordinates()[0]:
+                    self.plot_side_right = True
+                    print("Cash Multi is on the right side.")
+                    return True
+                else:
+                    self.plot_side_right = False
+                    print("Cash Multi is on the left side.")
+                    return True
             else:
-                self.plot_side_right = False
-                print("Cash Multi is on the left side.")
-        else:
-            print(f"Cash Multi not found in OCR results. Results: {ocr_results}")
-            self.window_manager.save_screenshot("debug_cash_multi_not_found.png", bounding_box)
-            return
+                print(f"Cash Multi not found in OCR results. Results: {ocr_results}")
+                #self.window_manager.save_screenshot("debug_cash_multi_not_found.png", bounding_box)
+
+        for i in range(5):
+            if ocr_multi():
+                break
+            self.safe_sleep(0.1)
+
+        self.input_manager.drag_mouse(100, 100, 100, 500, button='right')
+        self.safe_sleep(0.5)
+        return
+        
+        
         self.input_manager.drag_mouse(100, 100, 100, 500, button='right')
 
     def lock_base(self):
@@ -92,15 +126,37 @@ class GameActions:
         self.input_manager.key_press(self.plot_side_right and 'a' or 'd', duration=first_to_last_time)
         self.safe_sleep(0.5)
 
-    def scan_npcs(self, rarities=[], min_income=100, stop_time=None):
+    def scan_npcs(self, min_rarity=None, min_income=100, stop_time=None):
         """
-        Scan for NPCs with the given target names.
-        
+        Scan for NPCs and accept them based on rarity and income.
+
         Args:
-            target_names (list): List of target names to scan for.
-            hold_time (float): Time to hold the key for scanning.
-            accuracy (float): Accuracy threshold for OCR.
+            rarities (list, optional): A list of desired rarities (e.g., ["Legendary", "Brainrot God"]).
+                                    If None or empty, any rarity is accepted. Defaults to None.
+            min_income (int, optional): The minimum income to accept. Defaults to 100.
+            stop_time (int, optional): Time in seconds to run the scan for. Defaults to None.
         """
+        if not min_rarity or min_rarity == "N/A":
+            target_rarities = None
+        else:
+            try:
+                # Find the index of the minimum rarity (case-insensitive).
+                lower_all_rarities = [r.lower() for r in self.ALL_RARITIES]
+                min_rarity = min_rarity.lower().replace(" god", "")
+                start_index = lower_all_rarities.index(min_rarity.lower())
+                
+                # Create a list of accepted rarities from the minimum index onwards.
+                accepted_rarity_list = self.ALL_RARITIES[start_index:]
+                
+                # Convert to a set for efficient lookups.
+                target_rarities = set(accepted_rarity_list)
+                print(f"Scanning for rarities: {', '.join(accepted_rarity_list)}")
+            
+            except ValueError:
+                # Handle cases where the provided min_rarity is not valid.
+                print(f"Warning: Minimum rarity '{min_rarity}' is not valid. Defaulting to accept all rarities.")
+                target_rarities = None
+
         start_time = time.time()
         self.reset_bot()
         self.status_update("Scanning NPCs...")
@@ -109,29 +165,66 @@ class GameActions:
             self.input_manager.key_press('a', duration=hold_time)
         else:
             self.input_manager.key_press('d', duration=hold_time)
-        
-        #run ocr in loop with window manager
+
+        self.input_manager.move_mouse(13, 65)
+        self.safe_sleep(0.5)
+
         while True:
-            # Check if stop_time has been reached
+            x_coord = random.randint(12, 13)  # Random number between 12 and 13
+            self.input_manager.move_mouse(x_coord, 65)
             if stop_time is not None and time.time() - start_time >= stop_time:
                 print(f"Scan stopped after {stop_time} seconds")
                 break
-                
-            bounding_box = (148, 109, 610, 514)
-            ocr_results1 = self.window_manager.get_words_in_bounding_box(bounding_box)
-            # check for words in the format $<number>/ with regex
-            pattern = r"\$(.+)/s"
-            ocr_results = [match_obj for word, _ in ocr_results1 if (match_obj := re.search(pattern, word))]
-            print(f"OCR Results: {ocr_results}")
-            if len(ocr_results) == 1 and ocr_results[0]:
-                try:
-                    income = human_readable_to_long(ocr_results[0].group(1))
-                    self.tooltip(f"${income}/s")
-                    if income >= min_income:
-                        print(f"Found NPC with income: {income}")
-                        self.input_manager.key_press('e', duration=0.5)
-                except (ValueError, TypeError) as e:
-                    print(f"Invalid number '{ocr_results[0].group(1)}': {e}")
+
+            bounding_box = (148, 95, 610, 514)
+            ocr_results_raw = self.window_manager.get_words_in_bounding_box(bounding_box)
+            
+            # --- Initialize variables for this scan ---
+            found_income = None
+            income_str = "N/A"
+            found_rarity = None
+
+            ## CHANGED ## Process OCR results word-by-word.
+            for word, _ in ocr_results_raw:
+                # Check 1: Is this word an income string?
+                income_match = re.search(r"\$(.+)/s", word)
+                if income_match:
+                    try:
+                        income_str = income_match.group(1)
+                        found_income = human_readable_to_long(income_str)
+                    except (ValueError, TypeError) as e:
+                        print(f"Invalid income number '{income_str}': {e}")
+                    continue # Word processed, move to the next one
+
+                # Check 2: Is this word a known rarity keyword?
+                # Using .lower() for case-insensitive matching.
+                for rarity in self.ALL_RARITIES:
+                    if rarity in word.lower():
+                        found_rarity = rarity
+                        break
+
+            # --- Decision Logic ---
+            # Condition 1: Is the income high enough?
+            income_ok = found_income is not None and found_income >= min_income
+            # Condition 2: Is the rarity one we're looking for?
+            rarity_ok = target_rarities is not None and (found_rarity and found_rarity in target_rarities)
+
+            if not found_rarity and ocr_results_raw:
+                print(f"Unknown rarity found in OCR results: {ocr_results_raw}")
+
+            if income_ok or rarity_ok:
+                tooltip_text = f"FOUND!\nRarity: {found_rarity.title() if found_rarity is not None else '???'}\nIncome: ${income_str}/s"
+                self.tooltip(tooltip_text, color="green")
+                print(f"Match found! Rarity: {found_rarity}, Income: {found_income}. Pressing 'E'.")
+                self.input_manager.key_press('e', duration=0.5)
+            else:
+                rarity_display = found_rarity.title() if found_rarity else "???"
+                income_display = f"${income_str}/s" if found_income is not None else "???"
+                tooltip_text = f"Rarity: {rarity_display}\nIncome: {income_display}"
+                self.tooltip(tooltip_text, color="red")
+                if ocr_results_raw:
+                    print(f"Skipping. Rarity:'{found_rarity}' (Match:{rarity_ok}) | Income:{found_income} (Match:{income_ok})")
+
             if self.action_queue.get_queue_size() > 0:
                 raise Exception("Action queue is not empty, stopping scan.")
             self.safe_sleep(0.2)

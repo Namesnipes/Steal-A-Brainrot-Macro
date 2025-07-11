@@ -26,6 +26,15 @@ class InputManager:
         sleep(0.1)
         pdi.click(button=button)
     
+    def move_mouse(self, x, y):
+        """
+        Moves the mouse to the specified client coordinates.
+        :param x: The x-coordinate relative to the window's client area.
+        :param y: The y-coordinate relative to the window's client area.
+        """
+        screen_x, screen_y = self._client_to_screen(x, y)
+        pdi.moveTo(screen_x, screen_y)
+    
     def drag_mouse(self, start_x, start_y, end_x, end_y, button='left'):
         """
         Drags the mouse from start to end client coordinates.
@@ -41,6 +50,14 @@ class InputManager:
         pdi.moveTo(screen_start_x, screen_start_y)
         sleep(0.1)
         pdi.dragTo(screen_end_x, screen_end_y, duration=0.5, button=button)
+    
+    def scroll(self, *args, **kwargs):
+        """
+        Scrolls the mouse wheel.
+        :param args: Arguments for pydirectinput.scroll.
+        :param kwargs: Keyword arguments for pydirectinput.scroll.
+        """
+        pdi.scroll(*args, **kwargs)
 
     def key_press(self, *args, **kwargs):
         """

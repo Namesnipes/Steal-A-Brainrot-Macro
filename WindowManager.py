@@ -175,3 +175,32 @@ class WindowManager:
             return int(x), int(y)
 
         return None
+
+    def get_color_at_pixel(self, x, y):
+        """
+        Gets the color at a specific pixel in the window's client area.
+
+        :param x: The x-coordinate relative to the window's client area.
+        :param y: The y-coordinate relative to the window's client area.
+        :return: A tuple (r, g, b) representing the color at that pixel.
+        """
+        if not self.hwnd:
+            print("Error: Window not set up. Call setup_window() first.")
+            return None
+        
+        screen_x, screen_y = win32gui.ClientToScreen(self.hwnd, (x, y))
+        screenshot = ImageGrab.grab(bbox=(screen_x, screen_y, screen_x + 1, screen_y + 1))
+        pixel_value = screenshot.getpixel((0, 0))
+        
+        #rgb
+        if isinstance(pixel_value, tuple):
+            if len(pixel_value) >= 3:
+                return pixel_value[:3]  # RGB or RGBA
+            elif len(pixel_value) == 1:
+                return (pixel_value[0], pixel_value[0], pixel_value[0])
+            else:
+                return (0, 0, 0)
+        elif isinstance(pixel_value, (int, float)):
+            return (int(pixel_value), int(pixel_value), int(pixel_value))
+        else:
+            return (0, 0, 0)
