@@ -168,10 +168,15 @@ class GameActions:
 
         self.input_manager.move_mouse(13, 65)
         self.safe_sleep(0.5)
+        last_mouse_move_time = time.time()
 
         while True:
-            x_coord = random.randint(12, 13)  # Random number between 12 and 13
-            self.input_manager.move_mouse(x_coord, 65)
+            # Periodically move the mouse to prevent being idle
+            if time.time() - last_mouse_move_time >= 60:
+                x_coord = random.randint(12, 13)  # Random number between 12 and 13
+                self.input_manager.move_mouse(x_coord, 65)
+                last_mouse_move_time = time.time()
+
             if stop_time is not None and time.time() - start_time >= stop_time:
                 print(f"Scan stopped after {stop_time} seconds")
                 break
@@ -227,4 +232,5 @@ class GameActions:
 
             if self.action_queue.get_queue_size() > 0:
                 raise Exception("Action queue is not empty, stopping scan.")
+
             self.safe_sleep(0.2)

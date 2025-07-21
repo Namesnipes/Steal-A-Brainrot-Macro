@@ -10,6 +10,10 @@ class InputManager:
         """
         self.hwnd = hwnd
 
+    def _is_window_active(self):
+        """Checks if the target window is the current foreground window."""
+        return win32gui.GetForegroundWindow() == self.hwnd
+
     def _client_to_screen(self, x, y):
         """Converts client coordinates to screen coordinates."""
         return win32gui.ClientToScreen(self.hwnd, (x, y))
@@ -21,6 +25,7 @@ class InputManager:
         :param y: The y-coordinate relative to the window's client area.
         :param button: 'left' or 'right' mouse button.
         """
+        if not self._is_window_active(): return
         screen_x, screen_y = self._client_to_screen(x, y)
         pdi.moveTo(screen_x, screen_y)
         sleep(0.1)
@@ -32,6 +37,7 @@ class InputManager:
         :param x: The x-coordinate relative to the window's client area.
         :param y: The y-coordinate relative to the window's client area.
         """
+        if not self._is_window_active(): return
         screen_x, screen_y = self._client_to_screen(x, y)
         pdi.moveTo(screen_x, screen_y)
     
@@ -44,6 +50,7 @@ class InputManager:
         :param end_y: The ending y-coordinate (client).
         :param button: 'left' or 'right' mouse button.
         """
+        if not self._is_window_active(): return
         screen_start_x, screen_start_y = self._client_to_screen(start_x, start_y)
         screen_end_x, screen_end_y = self._client_to_screen(end_x, end_y)
         
@@ -57,6 +64,7 @@ class InputManager:
         :param args: Arguments for pydirectinput.scroll.
         :param kwargs: Keyword arguments for pydirectinput.scroll.
         """
+        if not self._is_window_active(): return
         pdi.scroll(*args, **kwargs)
 
     def key_press(self, *args, **kwargs):
@@ -64,4 +72,5 @@ class InputManager:
         Sends a key press. This is not coordinate-dependent.
         :param key: The key to press (e.g., 'w').
         """
+        if not self._is_window_active(): return
         pdi.press(*args, **kwargs)

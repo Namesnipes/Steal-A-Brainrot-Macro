@@ -9,7 +9,7 @@ from screen_ocr import Reader
 
 
 class WindowManager:
-    def __init__(self, config_path='config.json'):
+    def __init__(self, config_path='data/config.json'):
         self.config = self._load_config(config_path)
         self.os_name = sys.platform
 

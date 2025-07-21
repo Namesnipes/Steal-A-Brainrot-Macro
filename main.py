@@ -25,9 +25,7 @@ def main_bot_logic(settings, stop_event):
 
     # --- Preparation ---
     log("Preparing game window...")
-    while True:
-        game_actions.align_camera()
-        game_actions.collect_money()
+    game_actions.align_camera()
     log("Starting bot actions in 1 second...")
     sleep(1)
 

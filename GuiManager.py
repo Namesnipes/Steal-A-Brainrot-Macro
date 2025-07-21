@@ -135,6 +135,7 @@ class GuiManager:
         self.app = customtkinter.CTk()
         self.app.title("MooMan's Macro")
         self.app.geometry("500x520")
+        self.app.iconbitmap("data/favicon.ico")
 
         self.app.grid_columnconfigure(0, weight=1)
         self.app.grid_rowconfigure(1, weight=1)
