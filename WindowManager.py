@@ -116,7 +116,7 @@ class WindowManager:
             
             output.append((line_text, (mid_x, mid_y)))
             
-        return output
+        return output, result
 
     def save_screenshot(self, filename, bounding_box=None):
         """

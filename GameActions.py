@@ -92,9 +92,6 @@ class GameActions:
         self.input_manager.drag_mouse(100, 100, 100, 500, button='right')
         self.safe_sleep(0.5)
         return
-        
-        
-        self.input_manager.drag_mouse(100, 100, 100, 500, button='right')
 
     def lock_base(self):
         """
@@ -174,7 +171,7 @@ class GameActions:
             # Periodically move the mouse to prevent being idle
             if time.time() - last_mouse_move_time >= 60:
                 x_coord = random.randint(12, 13)  # Random number between 12 and 13
-                self.input_manager.move_mouse(x_coord, 65)
+                self.input_manager.click(x_coord, 65)
                 last_mouse_move_time = time.time()
 
             if stop_time is not None and time.time() - start_time >= stop_time:
@@ -182,7 +179,7 @@ class GameActions:
                 break
 
             bounding_box = (148, 95, 610, 514)
-            ocr_results_raw = self.window_manager.get_words_in_bounding_box(bounding_box)
+            ocr_results_raw, result_object = self.window_manager.get_words_in_bounding_box(bounding_box)
             
             # --- Initialize variables for this scan ---
             found_income = None
@@ -204,7 +201,7 @@ class GameActions:
                 # Check 2: Is this word a known rarity keyword?
                 # Using .lower() for case-insensitive matching.
                 for rarity in self.ALL_RARITIES:
-                    if rarity in word.lower():
+                    if result_object.find_matching_words(rarity):
                         found_rarity = rarity
                         break
 
@@ -220,7 +217,7 @@ class GameActions:
             if income_ok or rarity_ok:
                 tooltip_text = f"FOUND!\nRarity: {found_rarity.title() if found_rarity is not None else '???'}\nIncome: ${income_str}/s"
                 self.tooltip(tooltip_text, color="green")
-                print(f"Match found! Rarity: {found_rarity}, Income: {found_income}. Pressing 'E'.")
+                print(f"Match found! Rarity: {found_rarity}, Income: {found_income}.")
                 self.input_manager.key_press('e', duration=0.5)
             else:
                 rarity_display = found_rarity.title() if found_rarity else "???"

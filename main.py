@@ -10,13 +10,13 @@ from Events import Events
 def main_bot_logic(settings, stop_event):
     """The main logic for the bot, to be run in a thread."""
     # --- Initialization ---
-    log = Events().change_status
+    status = Events().change_status
     logdb = Events().debug
 
-    log("Initializing bot components...")
+    status("Initializing bot components...")
     window_manager = WindowManager()
     if not window_manager.setup_window():
-        log("Exiting: Could not set up game window.", "red")
+        status("Exiting: Could not set up game window.", "red")
         return
 
     input_manager = InputManager(window_manager.hwnd)
@@ -24,13 +24,13 @@ def main_bot_logic(settings, stop_event):
     game_actions = GameActions(window_manager, input_manager, stop_event, action_queue)
 
     # --- Preparation ---
-    log("Preparing game window...")
+    status("Preparing game window...")
     game_actions.align_camera()
-    log("Starting bot actions in 1 second...")
+    status("Starting bot actions in 1 second...")
     sleep(1)
 
     logdb(f"Settings received: {settings}")
-    log("Bot is running. Press F7 to stop.", "green")
+    status("Bot is running. Press F7 to stop.", "green")
 
     # --- Main Loop ---
     while not stop_event.is_set():
@@ -41,7 +41,7 @@ def main_bot_logic(settings, stop_event):
         if settings.get("auto_collect_money"):
             game_actions.collect_money()
 
-        if stop_event.is_set(): break
+        if stop_event.is_set(): break  # noqa: E701
 
         # 2. Handle Brainrot Scanning
         if settings.get("auto_scan_npcs"):
@@ -58,7 +58,7 @@ def main_bot_logic(settings, stop_event):
             if stop_event.wait(timeout=1):
                 break
     
-    log("Bot actions finished or stopped.", "orange")
+    status("Bot actions finished or stopped.", "orange")
 
 
 if __name__ == "__main__":

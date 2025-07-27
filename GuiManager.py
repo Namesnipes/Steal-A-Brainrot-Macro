@@ -264,6 +264,19 @@ class GuiManager:
         self.status_label = customtkinter.CTkLabel(self.app, text="Status: Idle", text_color="gray", anchor="w")
         self.status_label.grid(row=3, column=0, padx=20, pady=(0, 10), sticky="ew")
 
+        # --- Scan Log Tab (New) ---
+        scan_log_tab = tab_view.add("Scan Log")
+        scan_log_tab.grid_columnconfigure(0, weight=1)
+        scan_log_tab.grid_rowconfigure(0, weight=1)
+
+        # --- Text area to display scan logs ---
+        self.scan_log_text = customtkinter.CTkTextbox(scan_log_tab, wrap="word", state="disabled")
+        self.scan_log_text.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+
+        # --- Button to clear log ---
+        clear_log_button = customtkinter.CTkButton(scan_log_tab, text="Clear Log", command=self.clear_log)
+        clear_log_button.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+
     def _setup_hotkeys(self):
         """Binds global keyboard shortcuts to the class methods."""
         keyboard.add_hotkey("f5", self.start_macro)
@@ -353,6 +366,12 @@ class GuiManager:
         """
         print(message)
         self.status_label.configure(text=message, text_color=color)
+
+    def clear_log(self):
+        """Clears the scan log text area."""
+        self.scan_log_text.configure(state="normal")
+        self.scan_log_text.delete(1.0, "end")
+        self.scan_log_text.configure(state="disabled")
 
     def on_closing(self):
         """Handles the window closing event."""
