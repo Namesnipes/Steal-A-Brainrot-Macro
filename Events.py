@@ -32,3 +32,9 @@ class Events:
     
     def debug(self, message):
         self.emit("debug", message)
+    
+    def log(self, message):
+        self.emit("log", message)
+
+    def success(self, message):
+        self.emit("success", message)

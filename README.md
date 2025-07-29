@@ -15,9 +15,9 @@ Or build it from the source
 ![](https://i.imgur.com/F8kRyKo.mp4)
 
 ## Build
-run `pyinstaller --windowed --add-data "data/config.json;data" --add-data "data/favicon.ico;data" --icon="data/favicon.ico" main.py`
-
-Then in `dist` move `config.json` and `favicon.ico` into the same directory as main.exe
+1. Change VERSION file
+2. run `pyinstaller --windowed --add-data "data;data" --icon="data/favicon.ico" main.py`
+3. Move config.json and favicon.ico out of the folder
 
 ## Frequently Asked Questions (FAQ)
 

@@ -14,6 +14,9 @@ class GameActions:
         self.action_queue = action_queue
         self.status_update = Events().change_status
         self.tooltip = Events().tooltip
+        self.debug = Events().debug
+        self.log = Events().log
+        self.success = Events().success
         self.ALL_RARITIES = [
         "common", "rare", "epic", "legendary", 
         "mythic", "brainrot", "secret"
@@ -44,7 +47,7 @@ class GameActions:
         if not no_drag:
             self.input_manager.drag_mouse(100, 100, 100, 500, button='right')
         self.safe_sleep(0.5)
-        print(f"red1: ({r})", f"red2: ({r2})")
+        self.debug(f"red1: ({r}) red2: ({r2})")
         if not (r > 120) and not (r2 > 120) and self.plot_side_right is not None:
             self.input_manager.key_press(self.plot_side_right and 'left' or 'right', duration=0.75)
 
@@ -66,22 +69,22 @@ class GameActions:
         # find if the word "CASH" is on the right or left side of the screen
         def ocr_multi():
             bounding_box = (55, 188, 731, 380)
-            ocr_results = self.window_manager.get_words_in_bounding_box(bounding_box)
-            print(f"OCR Results: {ocr_results}")
+            ocr_results, obj = self.window_manager.get_words_in_bounding_box(bounding_box)
+            self.debug(f"OCR Results: {ocr_results}")
             cash_words = [[word,coords] for word, coords in ocr_results if 'cash' in word.lower() or 'collect' in word.lower()]
             if len(cash_words) > 0:
                 cash_x, _ = cash_words[0][1]
-                print(self.window_manager.get_center_coordinates()[0])
+                self.debug(f"Cash X Coordinate: {cash_x}")
                 if cash_x > self.window_manager.get_center_coordinates()[0]:
                     self.plot_side_right = True
-                    print("Cash Multi is on the right side.")
+                    self.debug("Cash Multi is on the right side.")
                     return True
                 else:
                     self.plot_side_right = False
-                    print("Cash Multi is on the left side.")
+                    self.debug("Cash Multi is on the left side.")
                     return True
             else:
-                print(f"Cash Multi not found in OCR results. Results: {ocr_results}")
+                self.debug(f"Cash Multi not found in OCR results. Results: {ocr_results}")
                 #self.window_manager.save_screenshot("debug_cash_multi_not_found.png", bounding_box)
 
         for i in range(5):
@@ -147,11 +150,10 @@ class GameActions:
                 
                 # Convert to a set for efficient lookups.
                 target_rarities = set(accepted_rarity_list)
-                print(f"Scanning for rarities: {', '.join(accepted_rarity_list)}")
-            
+                self.debug(f"Scanning for rarities: {', '.join(accepted_rarity_list)}")
             except ValueError:
                 # Handle cases where the provided min_rarity is not valid.
-                print(f"Warning: Minimum rarity '{min_rarity}' is not valid. Defaulting to accept all rarities.")
+                self.debug(f"Warning: Minimum rarity '{min_rarity}' is not valid. Defaulting to accept all rarities.")
                 target_rarities = None
 
         start_time = time.time()
@@ -175,7 +177,7 @@ class GameActions:
                 last_mouse_move_time = time.time()
 
             if stop_time is not None and time.time() - start_time >= stop_time:
-                print(f"Scan stopped after {stop_time} seconds")
+                self.debug(f"Scan stopped after {stop_time} seconds")
                 break
 
             bounding_box = (148, 95, 610, 514)
@@ -195,7 +197,7 @@ class GameActions:
                         income_str = income_match.group(1)
                         found_income = human_readable_to_long(income_str)
                     except (ValueError, TypeError) as e:
-                        print(f"Invalid income number '{income_str}': {e}")
+                        self.debug(f"Invalid income number '{income_str}': {e}")
                     continue # Word processed, move to the next one
 
                 # Check 2: Is this word a known rarity keyword?
@@ -211,13 +213,21 @@ class GameActions:
             # Condition 2: Is the rarity one we're looking for?
             rarity_ok = target_rarities is not None and (found_rarity and found_rarity in target_rarities)
 
+            # false positives
+            if found_income is not None and found_income > 1000 and found_rarity in ["common", "rare", "epic"]:
+                income_ok = False 
+                rarity_ok = False 
+            if found_income is not None and found_income > 10000 and found_rarity in ["legendary"]:
+                income_ok = False 
+                rarity_ok = False  
+
             if not found_rarity and ocr_results_raw:
-                print(f"Unknown rarity found in OCR results: {ocr_results_raw}")
+                self.debug(f"Unknown rarity found in OCR results: {ocr_results_raw}")
 
             if income_ok or rarity_ok:
                 tooltip_text = f"FOUND!\nRarity: {found_rarity.title() if found_rarity is not None else '???'}\nIncome: ${income_str}/s"
                 self.tooltip(tooltip_text, color="green")
-                print(f"Match found! Rarity: {found_rarity}, Income: {found_income}.")
+                self.success(f"Match found! Rarity: {found_rarity}, Income: {found_income}.")
                 self.input_manager.key_press('e', duration=0.5)
             else:
                 rarity_display = found_rarity.title() if found_rarity else "???"
@@ -225,7 +235,7 @@ class GameActions:
                 tooltip_text = f"Rarity: {rarity_display}\nIncome: {income_display}"
                 self.tooltip(tooltip_text, color="red")
                 if ocr_results_raw:
-                    print(f"Skipping. Rarity:'{found_rarity}' (Match:{rarity_ok}) | Income:{found_income} (Match:{income_ok})")
+                    self.debug(f"Skipping. Rarity:'{found_rarity}' (Match:{rarity_ok}) | Income:{found_income} (Match:{income_ok})")
 
             if self.action_queue.get_queue_size() > 0:
                 raise Exception("Action queue is not empty, stopping scan.")

@@ -6,6 +6,7 @@ import win32con
 from PIL import ImageGrab
 import numpy as np
 from screen_ocr import Reader
+from Events import Events
 
 
 class WindowManager:
@@ -15,6 +16,7 @@ class WindowManager:
 
         self.hwnd = None  # Window handle
         self.ocr_reader = Reader.create_quality_reader()
+        self.debug = Events().debug  # Debug logging function
 
     def _load_config(self, path):
         """Loads the JSON configuration file."""
@@ -32,7 +34,7 @@ class WindowManager:
         win32gui.EnumWindows(enum_windows_callback, windows)
         
         if not windows:
-            print(f"Error: {self.config['window_title']} window not found.")
+            self.debug(f"Error: {self.config['window_title']} window not found.")
             return False
         
         # Use the first window found
@@ -57,18 +59,18 @@ class WindowManager:
                                 self.config['standard_height'], 
                                 win32con.SWP_NOMOVE | win32con.SWP_NOZORDER)
             sleep(0.5)
-            
-            print("Window setup complete!")
+
+            self.debug("Window setup complete!")
             return True
 
         except Exception as e:
-            print(f"Error standardizing window: {e}")
+            self.debug(f"Error standardizing window: {e}")
             return False
 
     def get_center_coordinates(self):
         """Returns the center coordinates of the current window's client area."""
         if not self.hwnd:
-            print("Error: Window not set up. Call setup_window() first.")
+            self.debug("Error: Window not set up. Call setup_window() first.")
             return None
         
         # Get client area coordinates (handles window decorations automatically)
@@ -127,7 +129,7 @@ class WindowManager:
                             If None, captures the entire client area.
         """
         if not self.hwnd:
-            print("Error: Window not set up. Call setup_window() first.")
+            self.debug("Error: Window not set up. Call setup_window() first.")
             return
         
         if bounding_box is None:
@@ -139,8 +141,8 @@ class WindowManager:
 
         screenshot = ImageGrab.grab(bbox=bounding_box)
         screenshot.save(filename)
-        print(f"Screenshot saved as {filename}")
-        
+        self.debug(f"Screenshot saved as {filename}")
+
     def find_color(self, hex_color, threshold=10):
         """
         Finds the first occurrence of a color in the window's client area.
@@ -185,7 +187,7 @@ class WindowManager:
         :return: A tuple (r, g, b) representing the color at that pixel.
         """
         if not self.hwnd:
-            print("Error: Window not set up. Call setup_window() first.")
+            self.debug("Error: Window not set up. Call setup_window() first.")
             return None
         
         screen_x, screen_y = win32gui.ClientToScreen(self.hwnd, (x, y))

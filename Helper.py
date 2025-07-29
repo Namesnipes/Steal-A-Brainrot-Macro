@@ -41,9 +41,7 @@ def human_readable_to_long(human_readable_num_str: str) -> float:
 
     multipliers = {
         'k': 1_000,
-        'm': 1_000_000,
-        'b': 1_000_000_000,
-        't': 1_000_000_000_000
+        'm': 1_000_000
     }
 
     if suffix:
