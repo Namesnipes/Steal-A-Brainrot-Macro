@@ -7,57 +7,77 @@ from PIL import ImageGrab
 import numpy as np
 from screen_ocr import Reader
 from Events import Events
-
+from pathlib import Path
 
 class WindowManager:
-    def __init__(self, config_path='data/config.json'):
-        self.config = self._load_config(config_path)
-        self.os_name = sys.platform
+    def __init__(self, config_path: str = None):
+        """
+        :param config_path: Optional override (relative to this file) for the JSON config.
+                            Defaults to 'data/config.json' next to WindowManager.py.
+        """
+        # 1) Determine base directory (where this file lives)
+        base_dir = Path(__file__).parent
+        # 2) Resolve config file path
+        cfg_file = base_dir / (config_path or "data/config.json")
 
-        self.hwnd = None  # Window handle
+        # 3) Create parent dirs and a default empty config if missing
+        if not cfg_file.exists():
+            cfg_file.parent.mkdir(parents=True, exist_ok=True)
+            cfg_file.write_text("{}", encoding="utf-8")
+
+        # 4) Load the JSON config
+        self.config = self._load_config(cfg_file)
+
+        # Rest of initialization
+        self.os_name    = sys.platform
+        self.hwnd       = None
         self.ocr_reader = Reader.create_quality_reader()
-        self.debug = Events().debug  # Debug logging function
+        self.debug      = Events().debug  # for debug logging
 
-    def _load_config(self, path):
-        """Loads the JSON configuration file."""
-        with open(path, 'r') as f:
-            return json.load(f)
+    def _load_config(self, path: Path):
+        """Load JSON config from the given pathlib.Path, raising on invalid JSON."""
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Invalid JSON in config at {path}: {e}")
 
     def setup_window(self):
-        """Finds, activates, and standardizes the target window using Windows API."""
-        
-        def enum_windows_callback(hwnd, results):
-            if win32gui.IsWindowVisible(hwnd) and win32gui.GetWindowText(hwnd) == self.config['window_title']:
+        """Find, activate, and standardize the target window via Win32 API."""
+        def enum_cb(hwnd, results):
+            title = win32gui.GetWindowText(hwnd)
+            if win32gui.IsWindowVisible(hwnd) and title == self.config.get("window_title"):
                 results.append(hwnd)
-        
+
         windows = []
-        win32gui.EnumWindows(enum_windows_callback, windows)
-        
+        win32gui.EnumWindows(enum_cb, windows)
+
         if not windows:
-            self.debug(f"Error: {self.config['window_title']} window not found.")
+            self.debug(f"Error: '{self.config.get('window_title')}' window not found.")
             return False
-        
-        # Use the first window found
+
         self.hwnd = windows[0]
-        
         try:
-            # Activate window
+            # Bring to front & maximize
             win32gui.SetForegroundWindow(self.hwnd)
             sleep(0.3)
-            
-            # Maximize window
             win32gui.ShowWindow(self.hwnd, win32con.SW_MAXIMIZE)
             sleep(0.3)
-            
-            # Move to position (0, 0)
-            win32gui.SetWindowPos(self.hwnd, 0, 0, 0, 0, 0, win32con.SWP_NOSIZE | win32con.SWP_NOZORDER)
+
+            # Move to (0,0)
+            win32gui.SetWindowPos(
+                self.hwnd, 0, 0, 0, 0, 0,
+                win32con.SWP_NOSIZE | win32con.SWP_NOZORDER
+            )
             sleep(0.3)
-            
-            # Resize window
-            win32gui.SetWindowPos(self.hwnd, 0, 0, 0, 
-                                self.config['standard_width'], 
-                                self.config['standard_height'], 
-                                win32con.SWP_NOMOVE | win32con.SWP_NOZORDER)
+
+            # Resize to standard dimensions
+            win32gui.SetWindowPos(
+                self.hwnd, 0, 0, 0,
+                self.config["standard_width"],
+                self.config["standard_height"],
+                win32con.SWP_NOMOVE | win32con.SWP_NOZORDER
+            )
             sleep(0.5)
 
             self.debug("Window setup complete!")
@@ -68,141 +88,78 @@ class WindowManager:
             return False
 
     def get_center_coordinates(self):
-        """Returns the center coordinates of the current window's client area."""
+        """Return the center of the client area in screen coordinates."""
         if not self.hwnd:
-            self.debug("Error: Window not set up. Call setup_window() first.")
+            self.debug("Error: Call setup_window() first.")
             return None
-        
-        # Get client area coordinates (handles window decorations automatically)
-        client_rect = win32gui.GetClientRect(self.hwnd)
-        left, top, right, bottom = client_rect
-        
-        center_x = (right - left) // 2
-        center_y = (bottom - top) // 2
-        
-        # Convert to screen coordinates
-        client_to_screen = win32gui.ClientToScreen(self.hwnd, (center_x, center_y))
-        return client_to_screen
+
+        left, top, right, bottom = win32gui.GetClientRect(self.hwnd)
+        cx = (right - left) // 2
+        cy = (bottom - top) // 2
+        return win32gui.ClientToScreen(self.hwnd, (cx, cy))
 
     def get_words_in_bounding_box(self, bounding_box):
         """
-        Performs OCR on a screen region and returns a list of lowercase text lines.
-        
-        Args:
-            bounding_box: A tuple (left, top, right, bottom) defining the area.
-            ocr_reader: An initialized screen_ocr.Reader instance.
-
-        Returns:
-            A list of tuples, where each tuple contains:
-            - A lowercase string of the detected line of text.
-            - A tuple (x, y) for the line's center coordinates.
+        OCR on a client-area box.
+        Returns a list of (text, (x,y)) and the full OCR result object.
         """
-        #convert make bounding_box screen coordinates
-        screen_left, screen_top = win32gui.ClientToScreen(self.hwnd, (bounding_box[0], bounding_box[1]))
-        screen_right, screen_bottom = win32gui.ClientToScreen(self.hwnd, (bounding_box[2], bounding_box[3]))
-
-        result = self.ocr_reader.read_screen((screen_left, screen_top, screen_right, screen_bottom))
+        sl, st = win32gui.ClientToScreen(self.hwnd, (bounding_box[0], bounding_box[1]))
+        sr, sb = win32gui.ClientToScreen(self.hwnd, (bounding_box[2], bounding_box[3]))
+        result = self.ocr_reader.read_screen((sl, st, sr, sb))
 
         output = []
         for line in result.result.lines:
             if not line.words:
                 continue
-                
-            line_text = "".join(word.text + " " for word in line.words).strip().lower()
-            
-            first_word = line.words[0]
-            last_word = line.words[-1]
-            
-            mid_y = int(first_word.top + (first_word.height / 2))
-            mid_x = int((first_word.left + (last_word.left + last_word.width)) / 2)
-            
-            output.append((line_text, (mid_x, mid_y)))
-            
+            text = " ".join(w.text for w in line.words).strip().lower()
+            fw, lw = line.words[0], line.words[-1]
+            mid_x = int((fw.left + (lw.left + lw.width)) / 2)
+            mid_y = int(fw.top + fw.height / 2)
+            output.append((text, (mid_x, mid_y)))
+
         return output, result
 
     def save_screenshot(self, filename, bounding_box=None):
-        """
-        Saves a screenshot of the current window or a specified bounding box.
-
-        :param filename: The name of the file to save the screenshot.
-        :param bounding_box: Optional tuple (left, top, right, bottom) for a specific area.
-                            If None, captures the entire client area.
-        """
+        """Save a screenshot of the client area (or a sub-region) to disk."""
         if not self.hwnd:
-            self.debug("Error: Window not set up. Call setup_window() first.")
+            self.debug("Error: Call setup_window() first.")
             return
-        
-        if bounding_box is None:
-            # Get client area coordinates
-            left, top, right, bottom = win32gui.GetClientRect(self.hwnd)
-            screen_left, screen_top = win32gui.ClientToScreen(self.hwnd, (left, top))
-            screen_right, screen_bottom = win32gui.ClientToScreen(self.hwnd, (right, bottom))
-            bounding_box = (screen_left, screen_top, screen_right, screen_bottom)
 
-        screenshot = ImageGrab.grab(bbox=bounding_box)
-        screenshot.save(filename)
+        if bounding_box is None:
+            left, top, right, bottom = win32gui.GetClientRect(self.hwnd)
+            sl, st = win32gui.ClientToScreen(self.hwnd, (left, top))
+            sr, sb = win32gui.ClientToScreen(self.hwnd, (right, bottom))
+            bounding_box = (sl, st, sr, sb)
+
+        img = ImageGrab.grab(bbox=bounding_box)
+        img.save(filename)
         self.debug(f"Screenshot saved as {filename}")
 
     def find_color(self, hex_color, threshold=10):
         """
-        Finds the first occurrence of a color in the window's client area.
-
-        :param hex_color: The hex color string (e.g., "D83228").
-        :param threshold: The tolerance for color matching (0-255).
-        :return: A tuple (x, y) of the client coordinates, or None if not found.
+        Find the first pixel matching hex_color ± threshold.
+        Returns client-area (x, y) or None.
         """
-        # 1. Get window client area and take a screenshot
         left, top, right, bottom = win32gui.GetClientRect(self.hwnd)
-        
-        # Adjust to screen coordinates for the screenshot
-        screen_left, screen_top = win32gui.ClientToScreen(self.hwnd, (left, top))
-        screen_right, screen_bottom = win32gui.ClientToScreen(self.hwnd, (right, bottom))
+        sl, st = win32gui.ClientToScreen(self.hwnd, (left, top))
+        sr, sb = win32gui.ClientToScreen(self.hwnd, (right, bottom))
+        arr = np.array(ImageGrab.grab(bbox=(sl, st, sr, sb)))
 
-        screenshot = ImageGrab.grab(bbox=(screen_left, screen_top, screen_right, screen_bottom))
-        img_np = np.array(screenshot)
-
-        # 2. Convert hex to RGB
-        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-        target_color = np.array([r, g, b])
-
-        # 3. Find pixels within the threshold
-        diff = np.abs(img_np - target_color)
-        distance = np.sum(diff, axis=2)
-        matching_pixels = np.where(distance <= threshold)
-
-        # 4. Return the first match's client coordinates
-        if matching_pixels[0].size > 0:
-            # These are relative to the screenshot, which is the client area
-            y, x = matching_pixels[0][0], matching_pixels[1][0]
-            return int(x), int(y)
-
+        target = np.array([int(hex_color[i:i+2], 16) for i in (0, 2, 4)])
+        dist = np.sum(np.abs(arr - target), axis=2)
+        ys, xs = np.where(dist <= threshold)
+        if ys.size:
+            return int(xs[0]), int(ys[0])
         return None
 
     def get_color_at_pixel(self, x, y):
-        """
-        Gets the color at a specific pixel in the window's client area.
-
-        :param x: The x-coordinate relative to the window's client area.
-        :param y: The y-coordinate relative to the window's client area.
-        :return: A tuple (r, g, b) representing the color at that pixel.
-        """
+        """Get the RGB tuple at a given client-area pixel."""
         if not self.hwnd:
-            self.debug("Error: Window not set up. Call setup_window() first.")
+            self.debug("Error: Call setup_window() first.")
             return None
-        
-        screen_x, screen_y = win32gui.ClientToScreen(self.hwnd, (x, y))
-        screenshot = ImageGrab.grab(bbox=(screen_x, screen_y, screen_x + 1, screen_y + 1))
-        pixel_value = screenshot.getpixel((0, 0))
-        
-        #rgb
-        if isinstance(pixel_value, tuple):
-            if len(pixel_value) >= 3:
-                return pixel_value[:3]  # RGB or RGBA
-            elif len(pixel_value) == 1:
-                return (pixel_value[0], pixel_value[0], pixel_value[0])
-            else:
-                return (0, 0, 0)
-        elif isinstance(pixel_value, (int, float)):
-            return (int(pixel_value), int(pixel_value), int(pixel_value))
-        else:
-            return (0, 0, 0)
+
+        sx, sy = win32gui.ClientToScreen(self.hwnd, (x, y))
+        pix = ImageGrab.grab(bbox=(sx, sy, sx+1, sy+1)).getpixel((0, 0))
+        if isinstance(pix, tuple):
+            return pix[:3] if len(pix) >= 3 else (pix[0], pix[0], pix[0])
+        return (pix, pix, pix)
