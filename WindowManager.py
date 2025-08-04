@@ -10,7 +10,7 @@ from Events import Events
 from pathlib import Path
 
 class WindowManager:
-    def __init__(self, config_path: str = None):
+    def __init__(self, config_path='data/config.json'):
         """
         :param config_path: Optional override (relative to this file) for the JSON config.
                             Defaults to 'data/config.json' next to WindowManager.py.
