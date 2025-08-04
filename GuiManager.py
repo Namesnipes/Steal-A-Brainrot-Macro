@@ -135,7 +135,19 @@ class GuiManager:
         self.stop_event = threading.Event()
         self.running = False
         self.log_count = 0
-        self.version = self._get_version()
+        raw_url = (
+            "https://raw.githubusercontent.com/"
+            "Sparky7980/Steal-A-Brainrot-Macro/"
+            "main/build-info/version.txt"
+        )
+
+        try:
+            resp = requests.get(raw_url, timeout=5)
+            resp.raise_for_status()
+            self.version = resp.text.strip()
+        except Exception:
+            # e.g. network down or file moved
+            self.version = "Unknown"
 
         # --- Main Application Window Setup ---
         customtkinter.set_appearance_mode("system")  # Use system preference, but fallback to dark
