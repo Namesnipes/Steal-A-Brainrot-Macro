@@ -18,7 +18,7 @@ class WindowManager:
         # 1) Determine base directory (where this file lives)
         base_dir = Path(__file__).parent
         # 2) Resolve config file path
-        cfg_file = base_dir / (config_path or "data/config.json")
+        cfg_file = base_dir / config_path
 
         # 3) Create parent dirs and a default empty config if missing
         if not cfg_file.exists():
