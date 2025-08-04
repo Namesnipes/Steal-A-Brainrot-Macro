@@ -8,6 +8,8 @@ import pyautogui
 import os
 import requests
 from datetime import datetime
+from PIL import Image
+from pathlib import Path
 
 from Events import Events
 
@@ -135,7 +137,19 @@ class GuiManager:
         self.stop_event = threading.Event()
         self.running = False
         self.log_count = 0
-        self.version = self._get_version()
+        raw_url = (
+            "https://raw.githubusercontent.com/"
+            "Sparky7980/Steal-A-Brainrot-Macro/"
+            "main/build-info/version.txt"
+        )
+
+        try:
+            resp = requests.get(raw_url, timeout=5)
+            resp.raise_for_status()
+            self.version = resp.text.strip()
+        except Exception:
+            # e.g. network down or file moved
+            self.version = "Unknown"
 
         # --- Main Application Window Setup ---
         customtkinter.set_appearance_mode("system")  # Use system preference, but fallback to dark
@@ -144,7 +158,19 @@ class GuiManager:
         self.app = customtkinter.CTk()
         self.app.title("MooMan's Brainrot Macro")
         self.app.geometry("600x600")
-        self.app.iconbitmap("data/favicon.ico")
+        # resolve an absolute path to data/favicon.ico next to this file
+        icon_path = Path(__file__).parent / "data" / "favicon.ico"
+        if icon_path.exists():
+            try:
+        # Windows often needs an absolute path
+                self.app.iconbitmap(str(icon_path))
+            except tk.TclError:
+        # fallback to iconphoto (more flexible on many platforms)
+                icon_img = tk.PhotoImage(file=str(icon_path))
+                self.app.iconphoto(True, icon_img)
+        else:
+            print(f"[Warning] could not find icon at {icon_path}")
+
         self.app.resizable(True, True)  # Allow window to be resized
         self.app.minsize(400, 600)  # Set minimum window size
 
