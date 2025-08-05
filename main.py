@@ -3,6 +3,7 @@ from InputManager import InputManager
 from GameActions import GameActions
 from GuiManager import GuiManager # Import the new class
 from time import sleep
+from SettingsManager import SettingsManager # Import the new class
 
 from ActionQueue import ActionQueue
 from Events import Events
@@ -62,5 +63,12 @@ def main_bot_logic(settings, stop_event):
 
 
 if __name__ == "__main__":
-    gui = GuiManager(app_logic_callback=main_bot_logic)
+    settings_manager = SettingsManager()
+    initial_settings = settings_manager.get_settings()
+    
+    gui = GuiManager(
+        app_logic_callback=main_bot_logic,
+        settings_manager=settings_manager,
+
+    )
     gui.run()

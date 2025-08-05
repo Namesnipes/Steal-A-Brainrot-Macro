@@ -4,3 +4,5 @@
 /dist
 *.spec
 /testing
+*.pyc
+/SABR_venv

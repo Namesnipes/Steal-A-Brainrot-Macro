@@ -4,7 +4,6 @@ from time import sleep
 import win32gui
 import win32con
 from PIL import ImageGrab
-import numpy as np
 from screen_ocr import Reader
 from Events import Events
 

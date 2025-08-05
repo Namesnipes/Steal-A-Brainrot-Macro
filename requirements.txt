@@ -5,3 +5,5 @@ pydirectinput-rgx
 numpy
 pillow
 pyautogui
+keyboard
+requests

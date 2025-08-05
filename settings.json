@@ -1,0 +1,12 @@
+{
+    "auto_collect_money": true,
+    "collect_money_interval": 300,
+    "auto_scan_npcs": true,
+    "filter_by_income": true,
+    "income_threshold": 1000,
+    "min_rarity": "Rare",
+    "target_names": [],
+    "debug_mode": false,
+    "send_to_discord": false,
+    "discord_webhook_url": ""
+}

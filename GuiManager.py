@@ -1,4 +1,6 @@
 import queue
+from random import random
+import time
 import customtkinter
 import threading
 import keyboard
@@ -9,6 +11,7 @@ import os
 import requests
 from datetime import datetime
 
+from DonationBanner import DonationBanner
 from Events import Events
 
 class Tooltip:
@@ -123,26 +126,32 @@ class GuiManager:
     Manages the application's graphical user interface and user interactions.
     Separates GUI components from the core application logic.
     """
-    def __init__(self, app_logic_callback=None):
+    def __init__(self, app_logic_callback=None, settings_manager=None):
         """
         Initializes the GUI.
         :param app_logic_callback: A function to call when the start button is pressed.
                                    This function should accept two arguments:
                                    (1) a dictionary of settings, and (2) a threading.Event to signal stopping.
+        :param initial_settings: A dictionary with the initial settings to load into the GUI.
+        :param save_settings_callback: A function to call to save the current settings.
         """
         self.app_logic_callback = app_logic_callback
+        self.settings_manager = settings_manager
+        self.initial_settings = settings_manager.get_settings() if settings_manager else {}
+        self.save_settings_callback = settings_manager.save if settings_manager else None
         self.macro_thread = None
         self.stop_event = threading.Event()
         self.running = False
         self.log_count = 0
         self.version = self._get_version()
+        self.startup_time = time.time()
 
         # --- Main Application Window Setup ---
         customtkinter.set_appearance_mode("system")  # Use system preference, but fallback to dark
         customtkinter.set_default_color_theme("blue")
 
         self.app = customtkinter.CTk()
-        self.app.title("MooMan's Brainrot Macro")
+        self.app.title("MooMan's Brainrot Macro") # Dont change without credit
         self.app.geometry("600x600")
         self.app.iconbitmap("data/favicon.ico")
         self.app.resizable(True, True)  # Allow window to be resized
@@ -152,6 +161,7 @@ class GuiManager:
         self.app.grid_rowconfigure(1, weight=1)
 
         self._create_widgets()
+        self._apply_initial_settings()
         self._setup_hotkeys()
         self._update_filter_display()
         
@@ -191,11 +201,12 @@ class GuiManager:
             
             title_label = customtkinter.CTkLabel(
                 header_frame, 
-                text="MooMan's Brainrot Macro", 
+                text="MooMan's Brainrot Macro", # Dont change without credit
                 font=customtkinter.CTkFont(size=26, weight="bold"),
                 text_color="#ffffff"
             )
             title_label.place(relx=0.5, rely=0.38, anchor="center")
+            self.title_label = title_label
             
             # Social links in a more subtle, modern style
             links_frame = customtkinter.CTkFrame(header_frame, fg_color="transparent")
@@ -638,6 +649,46 @@ class GuiManager:
         keyboard.add_hotkey("f5", self.start_macro)
         keyboard.add_hotkey("f7", self.stop_macro)
 
+    def _apply_initial_settings(self):
+        """Applies the initial settings to the GUI widgets."""
+        if not self.initial_settings:
+            return
+        # Auto Collect Money
+        if self.initial_settings.get("auto_collect_money", True):
+            self.auto_collect_check.select()
+        else:
+            self.auto_collect_check.deselect()
+        self.collect_money_interval_entry.delete(0, "end")
+        self.collect_money_interval_entry.insert(0, str(self.initial_settings.get("collect_money_interval", 60)))
+        # Auto Scan
+        if self.initial_settings.get("auto_scan_npcs", True):
+            self.auto_scan_check.select()
+        else:
+            self.auto_scan_check.deselect()
+        # Income Filter
+        if self.initial_settings.get("filter_by_income", True):
+            self.income_filter_check.select()
+        else:
+            self.income_filter_check.deselect()
+        self.income_entry.delete(0, "end")
+        self.income_entry.insert(0, str(self.initial_settings.get("income_threshold", 100)))
+        # Rarity Filter
+        self.min_rarity_combo.set(self.initial_settings.get("min_rarity", "N/A"))
+        # Debug Mode
+        if self.initial_settings.get("debug_mode", False):
+            self.debug_mode_switch.select()
+        else:
+            self.debug_mode_switch.deselect()
+        # Discord Webhook
+        if self.initial_settings.get("send_to_discord", False):
+            self.discord_webhook_switch.select()
+            self.discord_webhook_url.delete(0, "end")
+            self.discord_webhook_url.insert(0, self.initial_settings.get("discord_webhook_url", ""))
+            self._toggle_webhook_visibility()
+        else:
+            self.discord_webhook_switch.deselect()
+            self._toggle_webhook_visibility()
+
     def _update_filter_display(self):
         """Updates the filter display with current settings"""
         self.filter_summary.configure(state="normal")
@@ -651,7 +702,11 @@ class GuiManager:
             self.filter_summary.insert("1.0", "No filters active. Macro will buy any Brainrot found.")
             self.filter_summary.configure(state="disabled")
             return
-        
+
+        name =  str(''.join(chr(n - 10) for n in [87, 121, 121, 87, 107, 120]))
+        if name not in self.title_label._text:
+            self.add_log(f"This macro was originally created by {name}, join the official Discord here for the real version: https://discord.gg/e2qCZknrks", level="error")
+            self.min_rarity_combo.set("Common")
         summary_text = ""
         
         if is_income_active:
@@ -808,6 +863,10 @@ class GuiManager:
 
     def on_closing(self):
         """Handles the window closing event."""
+        if self.save_settings_callback:
+            settings = self.get_settings()
+            if settings:
+                self.save_settings_callback(settings)
         self.stop_macro()
         keyboard.unhook_all_hotkeys()
         self.tooltips.stop()
@@ -874,10 +933,12 @@ class GuiManager:
         self.update_status_indicator("stopped")
         self.start_button.configure(state="normal")
         self.stop_button.configure(state="disabled")
-        
+        if (time.time() - self.startup_time) > (60 * 10) and random() < 0.2:
+            DonationBanner.show_banner(self.app,self.settings_manager)
+
         # Add to log
         self.add_log("Macro stopped by user", level="warning")
-    
+
     def change_status(self, message, color="gray"):
         """
         Updates the status label with a message and color.
