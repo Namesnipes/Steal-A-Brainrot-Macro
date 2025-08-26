@@ -40,6 +40,7 @@ class GameActions:
         self.input_manager.key_press('r')
         self.safe_sleep(0.3)
         self.input_manager.key_press('enter')
+        self.input_manager.click(295, 364)
         self.safe_sleep(5)
         # if is red
         r, g, b = self.window_manager.get_color_at_pixel(70, 397)
