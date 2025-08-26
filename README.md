@@ -17,7 +17,7 @@ Or build it from the source
 ## Build
 1. Change VERSION file
 2. run `pyinstaller --windowed --add-data "data;data" --icon="data/favicon.ico" main.py`
-3. Move config.json and favicon.ico out of the folder
+3. Move data folder out of the folder
 
 ## Frequently Asked Questions (FAQ)
 

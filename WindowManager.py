@@ -1,11 +1,12 @@
 import json
 import sys
 from time import sleep
+import numpy as np
 import win32gui
 import win32con
-from PIL import ImageGrab
 from screen_ocr import Reader
 from Events import Events
+from PIL import ImageGrab
 
 
 class WindowManager:
